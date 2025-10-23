@@ -1,0 +1,5 @@
+{
+  "name": "AI App Builder",
+  "description": "A conversational AI App Builder that learns, adapts, and auto-generates full-stack application code and previews through a natural multi-turn dialogue.",
+  "requestFramePermissions": []
+}
