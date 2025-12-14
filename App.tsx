@@ -10,9 +10,7 @@ const App: React.FC = () => {
   const [appSpecification, setAppSpecification] = useState<AppSpecification>(INITIAL_APP_SPEC);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // The API key is expected to be in environment variables, and geminiService handles it.
-  // We assume it's configured as per project guidelines.
-  const isApiConfigured = true;
+  const isApiConfigured = Boolean(typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;

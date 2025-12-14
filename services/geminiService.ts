@@ -2,7 +2,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Message, GeminiResponse } from '../types';
 import { SYSTEM_PROMPT } from '../constants';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let client: GoogleGenAI | null = null;
+
+const getApiKey = () => typeof import.meta !== 'undefined' ? import.meta.env?.VITE_GEMINI_API_KEY : undefined;
+
+const getClient = () => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error('Missing VITE_GEMINI_API_KEY environment variable. Please set it in your .env file.');
+    }
+    if (!client) {
+        client = new GoogleGenAI({ apiKey });
+    }
+    return client;
+};
 
 const themeSchema = {
     type: Type.OBJECT,
@@ -76,7 +89,7 @@ export const getAIResponse = async (history: Message[]): Promise<GeminiResponse>
         parts: [{ text: msg.content }]
     }));
 
-    const response = await ai.models.generateContent({
+    const response = await getClient().models.generateContent({
         model: 'gemini-2.5-pro',
         contents: contents,
         config: {
