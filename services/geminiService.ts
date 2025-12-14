@@ -4,7 +4,19 @@ import { SYSTEM_PROMPT } from '../constants';
 
 let client: GoogleGenAI | null = null;
 
-const getApiKey = () => typeof import.meta !== 'undefined' ? import.meta.env?.VITE_GEMINI_API_KEY : undefined;
+const getApiKey = () => {
+    if (typeof import.meta !== 'undefined') {
+        return import.meta.env?.VITE_GEMINI_API_KEY;
+    }
+
+    if (typeof process !== 'undefined') {
+        return process.env?.VITE_GEMINI_API_KEY;
+    }
+
+    return undefined;
+};
+
+export const isGeminiConfigured = () => Boolean(getApiKey());
 
 const getClient = () => {
     const apiKey = getApiKey();
