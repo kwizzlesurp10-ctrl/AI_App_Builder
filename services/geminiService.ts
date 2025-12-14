@@ -4,13 +4,17 @@ import { SYSTEM_PROMPT } from '../constants';
 
 let client: GoogleGenAI | null = null;
 
+const normalizeEnvValue = (value?: string) => value?.trim() || undefined;
+
 const getApiKey = () => {
-    if (typeof import.meta !== 'undefined') {
-        return import.meta.env?.VITE_GEMINI_API_KEY;
-    }
+    const fromImportMeta = typeof import.meta !== 'undefined'
+        ? normalizeEnvValue(import.meta.env?.VITE_GEMINI_API_KEY)
+        : undefined;
+    if (fromImportMeta) return fromImportMeta;
 
     if (typeof process !== 'undefined') {
-        return process.env?.VITE_GEMINI_API_KEY;
+        const envValue = normalizeEnvValue((process as { env?: Record<string, string> }).env?.VITE_GEMINI_API_KEY);
+        if (envValue) return envValue;
     }
 
     return undefined;
@@ -21,7 +25,7 @@ export const isGeminiConfigured = () => Boolean(getApiKey());
 const getClient = () => {
     const apiKey = getApiKey();
     if (!apiKey) {
-        throw new Error('Missing VITE_GEMINI_API_KEY environment variable. Please set it in your .env file.');
+        throw new Error('Missing VITE_GEMINI_API_KEY environment variable or it is empty. Please set it in your .env file.');
     }
     if (!client) {
         client = new GoogleGenAI({ apiKey });
