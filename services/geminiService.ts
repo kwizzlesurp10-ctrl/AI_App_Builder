@@ -2,7 +2,36 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Message, GeminiResponse } from '../types';
 import { SYSTEM_PROMPT } from '../constants';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let client: GoogleGenAI | null = null;
+
+const normalizeEnvValue = (value?: string) => value?.trim() || undefined;
+
+const getApiKey = () => {
+    const fromImportMeta = typeof import.meta !== 'undefined'
+        ? normalizeEnvValue(import.meta.env?.VITE_GEMINI_API_KEY)
+        : undefined;
+    if (fromImportMeta) return fromImportMeta;
+
+    if (typeof process !== 'undefined') {
+        const envValue = normalizeEnvValue((process as { env?: Record<string, string> }).env?.VITE_GEMINI_API_KEY);
+        if (envValue) return envValue;
+    }
+
+    return undefined;
+};
+
+export const isGeminiConfigured = () => Boolean(getApiKey());
+
+const getClient = () => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error('Missing VITE_GEMINI_API_KEY environment variable or it is empty. Please set it in your .env file.');
+    }
+    if (!client) {
+        client = new GoogleGenAI({ apiKey });
+    }
+    return client;
+};
 
 const themeSchema = {
     type: Type.OBJECT,
@@ -76,7 +105,7 @@ export const getAIResponse = async (history: Message[]): Promise<GeminiResponse>
         parts: [{ text: msg.content }]
     }));
 
-    const response = await ai.models.generateContent({
+    const response = await getClient().models.generateContent({
         model: 'gemini-2.5-pro',
         contents: contents,
         config: {

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { ChatInterface } from './components/ChatInterface';
 import { PreviewPane } from './components/PreviewPane';
-import { getAIResponse } from './services/geminiService';
+import { getAIResponse, isGeminiConfigured } from './services/geminiService';
 import type { Message, AppSpecification, GeminiResponse } from './types';
 import { INITIAL_APP_SPEC, INITIAL_MESSAGES } from './constants';
 
@@ -10,9 +10,7 @@ const App: React.FC = () => {
   const [appSpecification, setAppSpecification] = useState<AppSpecification>(INITIAL_APP_SPEC);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // The API key is expected to be in environment variables, and geminiService handles it.
-  // We assume it's configured as per project guidelines.
-  const isApiConfigured = true;
+  const isApiConfigured = isGeminiConfigured();
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
