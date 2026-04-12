@@ -24,6 +24,7 @@ export function escapeHtml(str: string): string {
  */
 export function sanitizeInput(input: string, maxLength = 10_000): string {
   // Remove null bytes and other control characters (keep newlines and tabs)
+  // eslint-disable-next-line no-control-regex
   const cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   return cleaned.trim().slice(0, maxLength);
 }
