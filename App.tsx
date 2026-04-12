@@ -1,31 +1,64 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChatInterface } from './components/ChatInterface';
 import { PreviewPane } from './components/PreviewPane';
-import { getAIResponse, isGeminiConfigured } from './services/geminiService';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { SwarmDashboard } from './components/swarm/SwarmDashboard';
+import { getSwarmAIResponse, isGeminiConfigured } from './services/swarmGeminiService';
+import { saveSession, loadSession, clearSession, getDefaultSession } from './services/persistenceService';
+import { sanitizeInput } from './services/sanitize';
 import type { Message, AppSpecification, GeminiResponse } from './types';
-import { INITIAL_APP_SPEC, INITIAL_MESSAGES } from './constants';
 
 const App: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
-  const [appSpecification, setAppSpecification] = useState<AppSpecification>(INITIAL_APP_SPEC);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [appSpecification, setAppSpecification] = useState<AppSpecification | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  
+  const [swarmExpanded, setSwarmExpanded] = useState<boolean>(false);
+
   const isApiConfigured = isGeminiConfigured();
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+  // Load persisted session on mount
+  useEffect(() => {
+    const saved = loadSession();
+    if (saved) {
+      setMessages(saved.messages);
+      setAppSpecification(saved.appSpec);
+    } else {
+      const defaults = getDefaultSession();
+      setMessages(defaults.messages);
+      setAppSpecification(defaults.appSpec);
+    }
+  }, []);
 
-    const userMessage: Message = { role: 'user', content };
+  // Persist session on changes
+  useEffect(() => {
+    if (messages.length > 0 && appSpecification) {
+      saveSession(messages, appSpecification);
+    }
+  }, [messages, appSpecification]);
+
+  const handleNewSession = useCallback(() => {
+    clearSession();
+    const defaults = getDefaultSession();
+    setMessages(defaults.messages);
+    setAppSpecification(defaults.appSpec);
+  }, []);
+
+  const handleSendMessage = useCallback(async (content: string) => {
+    const sanitized = sanitizeInput(content);
+    if (!sanitized) return;
+
+    const userMessage: Message = { role: 'user', content: sanitized };
     const newHistory = [...messages, userMessage];
     setMessages(newHistory);
     setIsLoading(true);
 
     try {
-      const geminiResponse: GeminiResponse = await getAIResponse(newHistory);
+      const geminiResponse: GeminiResponse = await getSwarmAIResponse(newHistory);
       const { artifact, intentEcho, nextQuestion } = geminiResponse;
 
       setAppSpecification(prevSpec => {
-        const newSpec = { ...prevSpec };
+        const baseSpec = prevSpec ?? getDefaultSession().appSpec;
+        const newSpec = { ...baseSpec };
         if (!artifact) return newSpec;
 
         switch (artifact.type) {
@@ -46,7 +79,6 @@ const App: React.FC = () => {
             if (artifact.theme) newSpec.theme = artifact.theme;
             break;
           default:
-            // For 'text' or other types, no spec update is needed.
             break;
         }
         return newSpec;
@@ -61,9 +93,12 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error(error);
+      const errorContent = error instanceof Error && error.message.includes('Rate limit')
+        ? 'You\'re sending requests too quickly. Please wait a moment and try again.'
+        : 'Sorry, I encountered an error processing your request. Please check the console for details or try rephrasing.';
       const errorMessage: Message = {
         role: 'model',
-        content: "Sorry, I encountered an error. The AI's response might not be in the correct format. Please check the console for details or try rephrasing your request.",
+        content: errorContent,
         isError: true,
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -72,20 +107,32 @@ const App: React.FC = () => {
     }
   }, [messages]);
 
+  // Don't render until state is initialized
+  if (!appSpecification) return null;
+
   return (
-    <div className="flex h-screen bg-gray-900 text-white font-sans">
-      <div className="w-1/3 max-w-2xl min-w-[400px] border-r border-gray-800">
-        <ChatInterface
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isLoading={isLoading}
-          isApiConfigured={isApiConfigured}
-        />
+    <ErrorBoundary>
+      <div className="flex h-screen bg-gray-900 text-white font-sans">
+        <div className="w-1/3 max-w-2xl min-w-[400px] border-r border-gray-800 flex flex-col">
+          <div className="flex-1 min-h-0">
+            <ChatInterface
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              isApiConfigured={isApiConfigured}
+              onNewSession={handleNewSession}
+            />
+          </div>
+          <SwarmDashboard
+            isExpanded={swarmExpanded}
+            onToggle={() => setSwarmExpanded(prev => !prev)}
+          />
+        </div>
+        <div className="flex-1">
+          <PreviewPane appSpecification={appSpecification} isLoading={isLoading} />
+        </div>
       </div>
-      <div className="flex-1">
-        <PreviewPane appSpecification={appSpecification} isLoading={isLoading} />
-      </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
