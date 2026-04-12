@@ -6,7 +6,7 @@
  */
 
 import { getAIResponse, isGeminiConfigured } from './geminiService';
-import { getOrchestrator } from './swarm';
+import { getOrchestrator, getAgentByRole } from './swarm';
 import type { Message, GeminiResponse, ArtifactType } from '../types';
 
 const MAX_RETRIES = 3;
@@ -59,8 +59,11 @@ export async function getSwarmAIResponse(history: Message[]): Promise<GeminiResp
       if (response.artifact?.type) {
         const artifactType = response.artifact.type as ArtifactType;
         const role = orchestrator.routeByArtifactType(artifactType);
-        const specialistTask = orchestrator.assignTask(role, `Generating ${artifactType} artifact`);
-        orchestrator.completeTask(specialistTask.id, specialistTask.targetRole === role ? `${role}-agent` : specialistTask.targetRole);
+        const agentDef = getAgentByRole(role);
+        if (agentDef) {
+          const specialistTask = orchestrator.assignTask(role, `Generating ${artifactType} artifact`);
+          orchestrator.completeTask(specialistTask.id, agentDef.id);
+        }
       }
 
       orchestrator.completeTask(task.id, 'orchestrator-prime', {
