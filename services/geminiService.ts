@@ -122,6 +122,6 @@ export const getAIResponse = async (history: Message[]): Promise<GeminiResponse>
         return parsedResponse as GeminiResponse;
     } catch (e) {
         console.error("Failed to parse Gemini JSON response:", response.text, e);
-        throw new Error("Invalid JSON response from AI.");
+        throw new Error("Invalid JSON response from AI.", { cause: e });
     }
 };
